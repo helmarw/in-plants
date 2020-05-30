@@ -12,14 +12,22 @@ int boardLed = D7; // This is the LED that is already on your device.
 
 int moisture_pin = A1; // This is where your capacitive moisture sensor is plugged in.
 
+// declaration on variables
+double airvalue = 3520;  // analog value measured in air = 0%
+double watervalue = 2230; // analog value measured in water = 100%
+double moisture_analog;
+double moisture_percentage;
+double voltage;
 
 // We start with the setup function.
 
 void setup() {
   pinMode(boardLed,OUTPUT); // Our on-board LED is output as well
   pinMode(moisture_pin,INPUT);  // Our capacitive moisture sensor pin is input (reading the capacitive moisture sensor)
-
-
+  //publish variable e.g. for IFTTT
+  Particle.variable("Moisture", &moisture_percentage, DOUBLE); 
+  Particle.variable("Batt_V", &voltage, DOUBLE); 
+  Particle.variable("Moisture_Analog", &moisture_analog, DOUBLE); 
   // Just to make sure everything is workign we are going to toggle the LED on and then off really quickly 3x
   digitalWrite(boardLed,HIGH);
   delay(200);
@@ -34,18 +42,27 @@ void loop() {
     After a specified time period we'll send a Particle.publish() to the cloud.
     */
 
-    digitalWrite(boardLed,HIGH);
+   digitalWrite(boardLed,HIGH);
     // Now we'll take some readings...
-    int moisture_analog = analogRead(moisture_pin); // read capacitive sensor
-    float moisture_percentage = (100 - ( (moisture_analog/4095.00) * 100 ) );
-    if(BATT > 1){
-        float voltage = analogRead(BATT) * 0.0011224;
-        Particle.publish("plantStatus_voltage", String(voltage),60,PUBLIC);
-    }
-    // Send a publish to your devices...
-    Particle.publish("plantStatus_analog", String(moisture_analog),60,PUBLIC);
-    Particle.publish("plantStatus_percentage", String(moisture_percentage),60,PUBLIC);
+    moisture_analog = round(analogRead(moisture_pin)); // read capacitive sensor
+    moisture_percentage = round(map(moisture_analog, airvalue, watervalue, 0.0, 100.0));  //after calibraing the value in air and the value in water
+    //float moisture_percentage = (100 - ( (moisture_analog/4095.00) * 100 ) );  //or just apropimate values wihtout calibrateion
+    Particle.publish("BATT_Status", String(BATT),60,PUBLIC);
+    voltage = analogRead(BATT) * 0.0011224;
+     // Send a publish to your devices...
+    Particle.publish("plantStatus_voltage", String(voltage,2),60,PUBLIC);
+     // need to wait a bit if you publish to ThingSpeak
+    delay(60000);
     digitalWrite(boardLed,LOW);
-    // wait 30 minutes
-    delay(1800000);
+    Particle.publish("plantStatus_percentage", String(moisture_percentage,0),60,PUBLIC);
+    delay(2000);
+    // for calibration purpose
+    Particle.publish("plantStatus_analog", String(moisture_analog,0),60,PUBLIC);
+    //delay(50000); // for testing when sleep mode is off
+     // put device to sleep for 
+     // 6h
+    delay(10000);
+    WiFi.off();
+    delay(250);
+    System.sleep(D1,RISING,6h);
 }
